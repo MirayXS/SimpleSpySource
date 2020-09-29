@@ -1148,7 +1148,7 @@ function formatstr(s)
         end
     end
     if lastend <= #s then
-        table.insert(returns, "\"" .. s:sub(lastend, #s) .. "\"")
+        table.insert(returns, "\"" .. handlespecials(s:sub(lastend, #s)) .. "\"")
     end
     return table.concat(returns, " .. ")
 end
@@ -1175,6 +1175,10 @@ function handlespecials(s, nested)
     elseif s:match("\t") then
         local pos, pos2 = s:find("\t")
         s = s:sub(0, pos - 1) .. "\\t" .. s:sub(pos2 + 1, s:len())
+        return handlespecials(s, true)
+    elseif s:match("\0") then
+        local pos, pos2 = s:find("\0")
+        s = s:sub(0, pos - 1) .. "\\0" .. s:sub(pos2 + 1, s:len())
         return handlespecials(s, true)
     else
         return s
