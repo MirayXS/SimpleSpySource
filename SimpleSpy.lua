@@ -1369,9 +1369,9 @@ end
 --- Handles the button creation things... Connected to `remoteHandlerEvent`
 function bindableHandler(type, ...)
     -- syn.set_thread_identity(7)
-    if type == "RemoteEvent" then
+    if type == "event" then
         newEvent(...)
-    elseif type == "RemoteFunction" then
+    elseif type == "function" then
         newFunction(...)
     end
 end
