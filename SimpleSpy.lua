@@ -1418,7 +1418,6 @@ if not _G.SimpleSpyExecuted then
         _G.SimpleSpyExecuted = true
     else
         rconsoleprint("A fatal error has occured, SimpleSpy was unable to launch properly.\nPlease DM this error message to @exx#9394:\n\n" .. tostring(err))
-        rconsolename = "SimpleSpy Error Console"
         ScreenguiS:Destroy()
         hookfunction(remoteEvent.FireServer, originalEvent)
         hookfunction(remoteFunction.InvokeServer, originalFunction)
