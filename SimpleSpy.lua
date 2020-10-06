@@ -1163,19 +1163,22 @@ function v2p(x, t, path, prev)
             end
         end
         if type(v) == "table" then
-            for _, p in pairs(prev) do
-                if rawequal(p, v) then
-                    return false, ""
+            local duplicate = false
+            for _, y in pairs(prev) do
+                if rawequal(y, v) then
+                    duplicate = true
                 end
             end
-            table.insert(prev, t)
-            local found
-            found, p = v2p(x, v, path, prev)
-            if found then
-                if type(i) == "string" and i:match("^[%a_]+[%w_]*$") then
-                    return true, "." .. i .. p
-                else
-                    return true, "[" .. v2s(i) .. "]" .. p
+            if not duplicate then
+                table.insert(prev, t)
+                local found
+                found, p = v2p(x, v, path, prev)
+                if found then
+                    if type(i) == "string" and i:match("^[%a_]+[%w_]*$") then
+                        return true, "." .. i .. p
+                    else
+                        return true, "[" .. v2s(i) .. "]" .. p
+                    end
                 end
             end
         end
