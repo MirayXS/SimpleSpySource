@@ -376,6 +376,8 @@ local remoteHooks = {}
 --- @param args any[]
 --- @return string
 function SimpleSpy:ArgsToString(method, args)
+    assert(typeof(method) == "string", "string expected, got " .. typeof(method))
+    assert(typeof(args) == "table", "table expected, got " .. typeof(args))
     return v2v({args = args}) .. "\n\n" .. method .. "(unpack(args))"
 end
 
@@ -383,6 +385,7 @@ end
 --- @param t any[]
 --- @return string
 function SimpleSpy:TableToVars(t)
+    assert(typeof(t) == "table", "table expected, got " .. typeof(t))
     return v2v(t)
 end
 
@@ -390,6 +393,7 @@ end
 --- @param value any
 --- @return string
 function SimpleSpy:ValueToVar(value, variablename)
+    assert(variablename == nil or typeof(variablename) == "string", "string expected, got " .. typeof(variablename))
     if not variablename then
         variablename = 1
     end
@@ -407,6 +411,7 @@ end
 --- @param func function
 --- @return string
 function SimpleSpy:GetFunctionInfo(func)
+    assert(typeof(func) == "function", "Instance expected, got " .. typeof(func))
     return v2v{functionInfo = {
         info = debug.getinfo(func),
         constants = debug.getconstants(func)
@@ -416,6 +421,7 @@ end
 --- Gets the ScriptSignal for a specified remote being fired
 --- @param remote Instance
 function SimpleSpy:GetRemoteFiredSignal(remote)
+    assert(typeof(remote) == "Instance", "Instance expected, got " .. typeof(remote))
     if not remoteSignals[remote] then
         remoteSignals[remote] = newSignal()
     end
@@ -426,7 +432,23 @@ end
 --- @param remote Instance
 --- @param f function
 function SimpleSpy:HookRemote(remote, f)
+    assert(typeof(remote) == "Instance", "Instance expected, got " .. typeof(remote))
+    assert(typeof(f) == "function", "function expected, got " .. typeof(f))
     remoteHooks[remote] = f
+end
+
+--- Blocks the specified remote instance/string
+--- @param remote any
+function SimpleSpy:BlockRemote(remote)
+    assert(typeof(remote) == "Instance" or typeof(remote) == "string", "Instance | string expected, got " .. typeof(remote))
+    blocklist[remote] = true
+end
+
+--- Excludes the specified remote from logs (instance/string)
+--- @param remote any
+function SimpleSpy:ExcludeRemote(remote)
+    assert(typeof(remote) == "Instance" or typeof(remote) == "string", "Instance | string expected, got " .. typeof(remote))
+    blacklist[remote] = true
 end
 
 --- Creates a new ScriptSignal that can be connected to and fired
