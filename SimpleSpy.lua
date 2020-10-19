@@ -959,7 +959,7 @@ function t2s(t, l, p, n, vtv, i, pt, path, tables)
     l = l + indent
     for k, v in pairs(t) do
         size = size + 1
-        if size > _G.SimpleSpyMaxTableSize and _G.SimpleSpyMaxTableSize or 1000 then
+        if size > (_G.SimpleSpyMaxTableSize and _G.SimpleSpyMaxTableSize or 1000) then
             break
         end
         local currentPath = ""
