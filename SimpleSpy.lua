@@ -1153,6 +1153,8 @@ function u2s(u)
         return "Enum"
     elseif typeof(u) == "RBXScriptSignal" then
         return "nil --[[RBXScriptSignal]]"
+    elseif typeof(u) == "PathWayoint" then
+        return string.format("PathWaypoint.new(%s, %s)", v2s(u.Position), v2s(u.Action))
     else
         return typeof(u) .. ".new(" .. tostring(u) .. ")"
     end
