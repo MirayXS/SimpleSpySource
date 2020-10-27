@@ -734,7 +734,7 @@ function newButton(name, defaultName, onClick)
 end
 
 --- Adds new RemoteEvent to logs
-function newEvent(name, gen_script, remote, function_info, blocked)
+function newEvent(name, gen_script, remote, function_info, blocked, src, srci)
     local remoteFrame = eTemplate:Clone()
     remoteFrame.name.Text = name
     local id = Instance.new("IntValue")
@@ -748,6 +748,8 @@ function newEvent(name, gen_script, remote, function_info, blocked)
         Remote = remote,
         Log = remoteFrame,
         Blocked = blocked,
+        Source = src,
+        SourceI = srci
     }
     if blocked then
         logs[#logs].GenScript = "-- THIS REMOTE WAS PREVENTED FROM FIRING THE SERVER BY SIMPLESPY\n\n" .. logs[#logs].GenScript
@@ -769,7 +771,7 @@ function newEvent(name, gen_script, remote, function_info, blocked)
 end
 
 --- Adds new RemoteFunction to logs
-function newFunction(name, gen_script, remote, function_info, blocked)
+function newFunction(name, gen_script, remote, function_info, blocked, src, srci)
     local remoteFrame = fTemplate:Clone()
     remoteFrame.name.Text = name
     local id = Instance.new("IntValue")
@@ -783,6 +785,8 @@ function newFunction(name, gen_script, remote, function_info, blocked)
         Remote = remote,
         Log = remoteFrame,
         Blocked = blocked,
+        Source = src,
+        SourceI = srci
     }
     if blocked then
         logs[#logs].GenScript = "-- THIS REMOTE WAS PREVENTED FROM FIRING THE SERVER BY SIMPLESPY\n\n" .. logs[#logs].GenScript
@@ -1250,6 +1254,57 @@ function handlespecials(s)
     return s
 end
 
+--- finds script from 'src' from getinfo, returns nil if not found
+--- @param src string
+function getScriptFromSrc(src)
+    local realPath
+    local runningTest
+    local s, e
+    local match = false
+    if src:sub(1, 1) == "=" then
+        realPath = game
+        s = 2
+    else
+        runningTest = src:sub(2, e and e - 1 or -1)
+        for _, v in pairs(getnilinstances()) do
+            if v.Name == runningTest then
+                realPath = v
+                break
+            end
+        end
+        s = #runningTest + 1
+    end
+    if realPath then
+        e = src:sub(s, -1):find("%.")
+        local i = 0
+        repeat
+            i += 1
+            if not e then
+                runningTest = src:sub(s, -1)
+                local test = realPath:FindFirstChild(runningTest)
+                if test then
+                    realPath = test
+                end
+                match = true
+            else
+                runningTest = src:sub(s, e)
+                local test = realPath:FindFirstChild(runningTest)
+                local yeOld = e
+                if test then
+                    realPath = test
+                    s = e + 2
+                    e = src:sub(e + 2, -1):find("%.")
+                    e = e and e + yeOld or e
+                else
+                    e = src:sub(e + 2, -1):find("%.")
+                    e = e and e + yeOld or e
+                end
+            end
+        until match or i >= 50
+    end
+    return realPath
+end
+
 --- schedules the provided function (and calls it with any args after)
 function schedule(f, ...)
     table.insert(scheduled, {f, ...})
@@ -1281,16 +1336,18 @@ function remoteHandler(hookfunction, methodName, remote, args, func)
         end
     end)()
     local functionInfoStr
+    local src, srci
     if func and islclosure(func) then
         local functionInfo = {}
         pcall(function() functionInfo.info = debug.getinfo(func) end)
         pcall(function() functionInfo.constants = debug.getconstants(func) end)
         pcall(function() functionInfoStr = v2v{functionInfo = functionInfo} end)
+        pcall(function() if functionInfo.info then srci = getScriptFromSrc(functionInfo.info.source) src = v2s(srci) end end)
     end
     if methodName:lower() == "fireserver" and not (blacklist[remote] or blacklist[remote.Name]) then
-        bindableHandler("event", remote.Name, genScript(remote, table.unpack(args)), remote, functionInfoStr, (blocklist[remote] or blocklist[remote.Name]))
+        bindableHandler("event", remote.Name, genScript(remote, table.unpack(args)), remote, functionInfoStr, (blocklist[remote] or blocklist[remote.Name]), src, srci)
     elseif methodName:lower() == "invokeserver" and not (blacklist[remote] or blacklist[remote.Name]) then
-        bindableHandler("function", remote.Name, genScript(remote, table.unpack(args)), remote, functionInfoStr, (blocklist[remote] or blocklist[remote.Name]))
+        bindableHandler("function", remote.Name, genScript(remote, table.unpack(args)), remote, functionInfoStr, (blocklist[remote] or blocklist[remote.Name]), src, srci)
     end
 end
 
@@ -1485,6 +1542,18 @@ newButton(
     end
 )
 
+--- Gets the calling script (not super reliable but w/e)
+newButton(
+    "Get Script",
+    "Click to copy calling script to clipboard\nWARNING: Not super reliable, nil == could not find",
+    function(button)
+        if selected then
+            setclipboard(tostring(selected.Source))
+            button.Text = "Done!"
+        end
+    end
+)
+
 --- Decompiles the script that fired the remote and puts it in the code box
 newButton(
     "Function Info",
@@ -1621,6 +1690,22 @@ newButton(
         button.Text = "Blocklist cleared!"
         wait(3)
         button.Text = orText
+    end
+)
+
+--- Attempts to decompile the source script
+newButton(
+    "Decompile",
+    "Attempts to decompile source script\nWARNING: Not super reliable, nil == could not find",
+    function(button)
+        if selected then
+            if selected.SourceI then
+                codebox:setRaw(decompile(selected.SourceI))
+                button.Text = "Done!"
+            else
+                button.Text = "Source not found!"
+            end
+        end
     end
 )
 
