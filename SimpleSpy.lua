@@ -734,7 +734,7 @@ function newButton(name, defaultName, onClick)
 end
 
 --- Adds new RemoteEvent to logs
-function newEvent(name, gen_script, remote, function_info, blocked)
+function newEvent(name, gen_script, remote, function_info, blocked, src, srci)
     local remoteFrame = eTemplate:Clone()
     remoteFrame.name.Text = name
     local id = Instance.new("IntValue")
@@ -748,6 +748,8 @@ function newEvent(name, gen_script, remote, function_info, blocked)
         Remote = remote,
         Log = remoteFrame,
         Blocked = blocked,
+        Source = src,
+        SourceI = srci
     }
     if blocked then
         logs[#logs].GenScript = "-- THIS REMOTE WAS PREVENTED FROM FIRING THE SERVER BY SIMPLESPY\n\n" .. logs[#logs].GenScript
@@ -769,7 +771,7 @@ function newEvent(name, gen_script, remote, function_info, blocked)
 end
 
 --- Adds new RemoteFunction to logs
-function newFunction(name, gen_script, remote, function_info, blocked)
+function newFunction(name, gen_script, remote, function_info, blocked, src, srci)
     local remoteFrame = fTemplate:Clone()
     remoteFrame.name.Text = name
     local id = Instance.new("IntValue")
@@ -783,6 +785,8 @@ function newFunction(name, gen_script, remote, function_info, blocked)
         Remote = remote,
         Log = remoteFrame,
         Blocked = blocked,
+        Source = src,
+        SourceI = srci
     }
     if blocked then
         logs[#logs].GenScript = "-- THIS REMOTE WAS PREVENTED FROM FIRING THE SERVER BY SIMPLESPY\n\n" .. logs[#logs].GenScript
@@ -869,6 +873,8 @@ function v2s(v, l, p, n, vtv, i, pt, path, tables)
     if typeof(v) == "number" then
         if v == math.huge then
             return "math.huge"
+        elseif tostring(v):match("nan") then
+            return "0/0 --[[NaN]]"
         end
         return tostring(v)
     elseif typeof(v) == "boolean" then
@@ -961,6 +967,11 @@ function t2s(t, l, p, n, vtv, i, pt, path, tables)
         size = size + 1
         if size > (_G.SimpleSpyMaxTableSize and _G.SimpleSpyMaxTableSize or 1000) then
             break
+        end
+        if k == t then
+            bottomstr ..= "\n" .. tostring(n) .. tostring(path) .. "[" .. tostring(n) .. tostring(path) .. "]" .. " = " .. (v == k and tostring(n) .. tostring(path) or v2s(v, l, p, n, vtv, k, t, path .. "[" .. tostring(n) .. tostring(path) .. "]", tables))
+            size -= 1
+            continue
         end
         local currentPath = ""
         if type(k) == "string" and k:match("^[%a_]+[%w_]*$") then
@@ -1151,7 +1162,7 @@ function u2s(u)
         return "Enum"
     elseif typeof(u) == "RBXScriptSignal" then
         return "nil --[[RBXScriptSignal]]"
-    elseif typeof(u) == "PathWayoint" then
+    elseif typeof(u) == "PathWaypoint" then
         return string.format("PathWaypoint.new(%s, %s)", v2s(u.Position), v2s(u.Action))
     elseif typeof(u) == "Vector3" then
         return string.format("Vector3.new(%s, %s, %s)", v2s(u.X), v2s(u.Y), v2s(u.Z))
@@ -1216,59 +1227,86 @@ end
 
 --- format s: string, byte encrypt (for weird symbols)
 function formatstr(s)
-    if not pcall(function() for _, _ in utf8.graphemes(s) do end end) then
-        return "\"" .. tobyte(s) .. "\""
-    end
-    local returns = {}
-    local lastend = 0
-    for f, l in utf8.graphemes(s) do
-        if l > f then
-            local char = "utf8.char(" .. table.concat({utf8.codepoint(s, f, l)}, ", ") .. ")"
-            if lastend >= f then
-                table.insert(returns, char)
-            else
-                table.insert(returns, "\"" .. handlespecials(s:sub(lastend, f - 1)) .. "\"")
-                table.insert(returns, char)
-            end
-            lastend = l + 1
-        end
-    end
-    if lastend <= #s then
-        table.insert(returns, "\"" .. handlespecials(s:sub(lastend, #s)) .. "\"")
-    end
-    return table.concat(returns, " .. ")
-end
-
---- Converts string to bytecodes '\1'
-function tobyte(s)
-    local news = ""
-    for i = 1, #s do
-        news = news .. "\\" .. s:sub(i, i):byte()
-    end
-    return news
+    return '"' .. handlespecials(s) .. '"'
 end
 
 --- Adds \'s to the text as a replacement to whitespace chars and other things because string.format can't yayeet
-function handlespecials(s, nested)
-    if not nested then
-        s = s:gsub("\\", "\\\\")
-        s = s:gsub("\"", "\\\"")
-    end
-    if s:match("\n") then
-        local pos, pos2 = s:find("\n")
-        s = s:sub(0, pos - 1) .. "\\n" .. s:sub(pos2 + 1, s:len())
-        return handlespecials(s, true)
-    elseif s:match("\t") then
-        local pos, pos2 = s:find("\t")
-        s = s:sub(0, pos - 1) .. "\\t" .. s:sub(pos2 + 1, s:len())
-        return handlespecials(s, true)
-    elseif s:match("\0") then
-        local pos, pos2 = s:find("\0")
-        s = s:sub(0, pos - 1) .. "\\0" .. s:sub(pos2 + 1, s:len())
-        return handlespecials(s, true)
+function handlespecials(s)
+    local i = 0
+    repeat
+        i = i + 1
+        local char = s:sub(i, i)
+        if string.byte(char) then
+            if char == "\n" then
+                s = s:sub(0, i - 1) .. "\\n" .. s:sub(i + 1, -1)
+                i = i + 1
+            elseif char == "\t" then
+                s = s:sub(0, i - 1) .. "\\t" .. s:sub(i + 1, -1)
+                i = i + 1
+            elseif char == "\\" then
+                s = s:sub(0, i - 1) .. "\\\\" .. s:sub(i + 1, -1)
+                i = i + 1
+            elseif char == '"' then
+                s = s:sub(0, i - 1) .. '\\"' .. s:sub(i + 1, -1)
+                i = i + 1
+            elseif string.byte(char) > 126 or string.byte(char) < 32 then
+                s = s:sub(0, i - 1) .. "\\" .. string.byte(char) .. s:sub(i + 1, -1)
+                i = i + #tostring(string.byte(char))
+            end
+        end
+    until char == ""
+    return s
+end
+
+--- finds script from 'src' from getinfo, returns nil if not found
+--- @param src string
+function getScriptFromSrc(src)
+    local realPath
+    local runningTest
+    local s, e
+    local match = false
+    if src:sub(1, 1) == "=" then
+        realPath = game
+        s = 2
     else
-        return s
+        runningTest = src:sub(2, e and e - 1 or -1)
+        for _, v in pairs(getnilinstances()) do
+            if v.Name == runningTest then
+                realPath = v
+                break
+            end
+        end
+        s = #runningTest + 1
     end
+    if realPath then
+        e = src:sub(s, -1):find("%.")
+        local i = 0
+        repeat
+            i += 1
+            if not e then
+                runningTest = src:sub(s, -1)
+                local test = realPath:FindFirstChild(runningTest)
+                if test then
+                    realPath = test
+                end
+                match = true
+            else
+                runningTest = src:sub(s, e)
+                local test = realPath:FindFirstChild(runningTest)
+                local yeOld = e
+                if test then
+                    realPath = test
+                    s = e + 2
+                    e = src:sub(e + 2, -1):find("%.")
+                    e = e and e + yeOld or e
+                else
+                    e = src:sub(e + 2, -1):find("%.")
+                    e = e and e + yeOld or e
+                end
+            end
+        until match or i >= 50
+    end
+    return realPath
 end
 
 --- schedules the provided function (and calls it with any args after)
@@ -1302,16 +1340,18 @@ function remoteHandler(hookfunction, methodName, remote, args, func)
         end
     end)()
     local functionInfoStr
+    local src, srci
     if func and islclosure(func) then
         local functionInfo = {}
         pcall(function() functionInfo.info = debug.getinfo(func) end)
         pcall(function() functionInfo.constants = debug.getconstants(func) end)
         pcall(function() functionInfoStr = v2v{functionInfo = functionInfo} end)
+        pcall(function() if functionInfo.info then srci = getScriptFromSrc(functionInfo.info.source) src = v2s(srci) end end)
     end
     if methodName:lower() == "fireserver" and not (blacklist[remote] or blacklist[remote.Name]) then
-        bindableHandler("event", remote.Name, genScript(remote, table.unpack(args)), remote, functionInfoStr, (blocklist[remote] or blocklist[remote.Name]))
+        bindableHandler("event", remote.Name, genScript(remote, table.unpack(args)), remote, functionInfoStr, (blocklist[remote] or blocklist[remote.Name]), src, srci)
     elseif methodName:lower() == "invokeserver" and not (blacklist[remote] or blacklist[remote.Name]) then
-        bindableHandler("function", remote.Name, genScript(remote, table.unpack(args)), remote, functionInfoStr, (blocklist[remote] or blocklist[remote.Name]))
+        bindableHandler("function", remote.Name, genScript(remote, table.unpack(args)), remote, functionInfoStr, (blocklist[remote] or blocklist[remote.Name]), src, srci)
     end
 end
 
@@ -1506,6 +1546,18 @@ newButton(
     end
 )
 
+--- Gets the calling script (not super reliable but w/e)
+newButton(
+    "Get Script",
+    "Click to copy calling script to clipboard\nWARNING: Not super reliable, nil == could not find",
+    function(button)
+        if selected then
+            setclipboard(tostring(selected.Source))
+            button.Text = "Done!"
+        end
+    end
+)
+
 --- Decompiles the script that fired the remote and puts it in the code box
 newButton(
     "Function Info",
@@ -1642,6 +1694,22 @@ newButton(
         button.Text = "Blocklist cleared!"
         wait(3)
         button.Text = orText
+    end
+)
+
+--- Attempts to decompile the source script
+newButton(
+    "Decompile",
+    "Attempts to decompile source script\nWARNING: Not super reliable, nil == could not find",
+    function(button)
+        if selected then
+            if selected.SourceI then
+                codebox:setRaw(decompile(selected.SourceI))
+                button.Text = "Done!"
+            else
+                button.Text = "Source not found!"
+            end
+        end
     end
 )
 
