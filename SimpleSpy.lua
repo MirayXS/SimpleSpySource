@@ -51,6 +51,7 @@ local TextLabel = Instance.new("TextLabel")
 
 SimpleSpy2.Name = "SimpleSpy2"
 SimpleSpy2.ResetOnSpawn = false
+SimpleSpy2.DisplayOrder = 2^52
 
 Background.Name = "Background"
 Background.Parent = SimpleSpy2
