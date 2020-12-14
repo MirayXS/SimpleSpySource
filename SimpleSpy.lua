@@ -892,7 +892,7 @@ function v2s(v, l, p, n, vtv, i, pt, path, tables)
     elseif type(v) == "userdata" then
         return u2s(v)
     else
-        return "nil --[[" .. tostring(v) .. "]]"
+        return "nil" -- --[[" .. tostring(v) .. "]]"
     end
 end
 
