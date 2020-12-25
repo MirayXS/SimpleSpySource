@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 --[[
     SimpleSpy v2.2 SOURCE 
 
@@ -1936,3 +1937,7 @@ newButton(
         excluding = {}
     end
 )
+=======
+rconsolewarn([[This SimpleSpy loadstring is invalid, you should be using 'loadstring(game:HttpGet("https://raw.githubusercontent.com/exxtremestuffs/SimpleSpySource/resizable_beta/SimpleSpy.lua"))()']])
+loadstring(game:HttpGet("https://raw.githubusercontent.com/exxtremestuffs/SimpleSpySource/resizable_beta/SimpleSpy.lua"))()
+>>>>>>> bd5b2c1677b2d3e8816589ce490adc8432759e49
