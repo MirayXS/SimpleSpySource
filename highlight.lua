@@ -59,7 +59,7 @@ local functions = {"[^%w_]([%a_][%a%d_]*)%s*%(", "^([%a_][%a%d_]*)%s*%(", "[:%.%
 local numbers = {"[^%w_](%d+[eE]?%d*)", "[^%w_](%.%d+[eE]?%d*)", "[^%w_](%d+%.%d+[eE]?%d*)", "^(%d+[eE]?%d*)", "^(%.%d+[eE]?%d*)", "^(%d+%.%d+[eE]?%d*)"}
 local booleans = {"[^%w_](true)", "^(true)", "[^%w_](false)", "^(false)", "[^%w_](nil)", "^(nil)"}
 local objects = {"[^%w_:]([%a_][%a%d_]*):", "^([%a_][%a%d_]*):"}
-local other = {"[^_%s%w=>~<%-%+%*]"}
+local other = {"[^_%s%w=>~<%-%+%*]", ">", "~", "<", "%-", "%+", "=", "%*"}
 local offLimits = {}
 
 --- Determines if index is in a string
@@ -335,6 +335,7 @@ function Highlight:init(frame)
         scrollingFrame.Size = UDim2.new(0, parentSize.X, 0, parentSize.Y)
         scrollingFrame.BackgroundColor3 = backgroundColor
         scrollingFrame.BorderSizePixel = 0
+        scrollingFrame.ScrollBarThickness = 4
 
         textFrame.Name = ""
         textFrame.Size = UDim2.new(1, -40, 1, 0)
