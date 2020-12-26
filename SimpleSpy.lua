@@ -869,7 +869,12 @@ function genScript(remote, ...)
 end
 
 --- value-to-string: value, string (out), level (indentation), parent table, var name, is from tovar
-function v2s(v, l, p, n, vtv, i, pt, path, tables)
+function v2s(v, l, p, n, vtv, i, pt, path, tables, tI)
+    if not tI then
+        tI = {0}
+    else
+        tI[1] += 1
+    end
     if typeof(v) == "number" then
         if v == math.huge then
             return "math.huge"
@@ -884,7 +889,7 @@ function v2s(v, l, p, n, vtv, i, pt, path, tables)
     elseif typeof(v) == "function" then
         return f2s(v)
     elseif typeof(v) == "table" then
-        return t2s(v, l, p, n, vtv, i, pt, path, tables)
+        return t2s(v, l, p, n, vtv, i, pt, path, tables, tI)
     elseif typeof(v) == "Instance" then
         return i2p(v)
     elseif typeof(v) == "userdata" then
@@ -892,7 +897,7 @@ function v2s(v, l, p, n, vtv, i, pt, path, tables)
     elseif type(v) == "userdata" then
         return u2s(v)
     else
-        return "nil" -- --[[" .. tostring(v) .. "]]"
+        return "nil --[[" .. typeof(v) .. "]]"
     end
 end
 
@@ -927,8 +932,18 @@ function v2v(t)
 end
 
 --- table-to-string
-function t2s(t, l, p, n, vtv, i, pt, path, tables)
-    for k, x in pairs(getrenv()) do
+--- @param t table
+--- @param l number
+--- @param p table
+--- @param n string
+--- @param vtv boolean
+--- @param i any
+--- @param pt table
+--- @param path string
+--- @param tables table
+--- @param tI table
+function t2s(t, l, p, n, vtv, i, pt, path, tables, tI)
+    for k, x in pairs(getrenv()) do -- checks if table is actually just a global
         local isgucci, gpath
         if rawequal(x, t) then
             isgucci, gpath = true, ""
@@ -943,48 +958,53 @@ function t2s(t, l, p, n, vtv, i, pt, path, tables)
             end
         end
     end
-    if not path then
+    if not tI then
+        tI = {0}
+    end
+    if not path then -- sets path to empty string (so it doesn't have to manually provided every time)
         path = ""
     end
-    if not l then
+    if not l then -- sets the level to 0 (for indentation) and tables for logging tables it already serialized
         l = 0
         tables = {}
     end
-    if not p then
+    if not p then -- p is the previous table but doesn't really matter if it's the first
         p = t
     end
-    for _, v in pairs(tables) do
+    for _, v in pairs(tables) do -- checks if the current table has been serialized before
         if n and rawequal(v, t) then
             bottomstr = bottomstr .. "\n" .. tostring(n) .. tostring(path) .. " = " .. tostring(n) .. tostring(({v2p(v, p)})[2])
             return "{} --[[DUPLICATE]]"
         end
     end
-    table.insert(tables, t)
-    local s =  "{"
+    table.insert(tables, t) -- logs table to past tables
+    local s =  "{" -- start of serialization
     local size = 0
-    l = l + indent
-    for k, v in pairs(t) do
-        size = size + 1
-        if size > (_G.SimpleSpyMaxTableSize and _G.SimpleSpyMaxTableSize or 1000) then
+    l = l + indent -- set indentation level
+    for k, v in pairs(t) do -- iterates over table
+        size = size + 1 -- changes size for max limit
+        if tI[1] > (_G.SimpleSpyMaxTableSize and _G.SimpleSpyMaxTableSize or 5000) then
+            s = s .. "\n" .. string.rep(" ", l) .. "-- MAXIMUM TABLE SIZE REACHED, CHANGE '_G.SimpleSpyMaxTableSize' TO ADJUST MAXIMUM SIZE "
             break
         end
-        if k == t then
-            bottomstr ..= "\n" .. tostring(n) .. tostring(path) .. "[" .. tostring(n) .. tostring(path) .. "]" .. " = " .. (v == k and tostring(n) .. tostring(path) or v2s(v, l, p, n, vtv, k, t, path .. "[" .. tostring(n) .. tostring(path) .. "]", tables))
+        if rawequal(k, t) then -- checks if the table being iterated over is being used as an index within itself (yay, lua)
+            bottomstr = bottomstr .. "\n" .. tostring(n) .. tostring(path) .. "[" .. tostring(n) .. tostring(path) .. "]" .. " = " .. (rawequal(v, k) and tostring(n) .. tostring(path) or v2s(v, l, p, n, vtv, k, t, path .. "[" .. tostring(n) .. tostring(path) .. "]", tables))
             size -= 1
             continue
         end
-        local currentPath = ""
-        if type(k) == "string" and k:match("^[%a_]+[%w_]*$") then
+        local currentPath = "" -- initializes the path of 'v' within 't'
+        if type(k) == "string" and k:match("^[%a_]+[%w_]*$") then -- cleanly handles table path generation (for the first half)
             currentPath = "." .. k
         else
-            currentPath = "[" .. v2s(k, nil, p, n, vtv, i, pt, path) .. "]"
+            currentPath = "[" .. v2s(k, nil, p, n, vtv, i, pt, path, nil, tI) .. "]"
         end
-        s = s .. "\n" .. string.rep(" ", l) .. "[" .. v2s(k, l, p, n, vtv, k, t, path .. currentPath, tables) .. "] = " .. v2s(v, l, p, n, vtv, k, t, path .. currentPath, tables) .. ","
+        -- actually serializes the member of the table
+        s = s .. "\n" .. string.rep(" ", l) .. "[" .. v2s(k, l, p, n, vtv, k, t, path .. currentPath, tables, tI) .. "] = " .. v2s(v, l, p, n, vtv, k, t, path .. currentPath, tables, tI) .. ","
     end
-    if #s > 1 then
+    if #s > 1 then -- removes the last comma because it looks nicer (no way to tell if it's done 'till it's done so...)
         s = s:sub(1, #s - 1)
     end
-    if size > 0 then
+    if size > 0 then -- cleanly indents the last curly bracket
         s = s .. "\n" .. string.rep(" ", l - indent)
     end
     return s .. "}"
