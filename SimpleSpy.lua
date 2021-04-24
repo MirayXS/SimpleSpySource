@@ -1522,7 +1522,7 @@ if not _G.SimpleSpyExecuted then
         coroutine.wrap(function() wait(3) toggleSideTray(true) end)()
         schedulerconnect = RunService.Heartbeat:Connect(taskscheduler)
         setclipboard("loadstring(game:HttpGet(\"https://github.com/exxtremestuffs/SimpleSpySource/raw/master/SimpleSpy.lua\"))()")
-        messagebox("This version of SimplSpy is no longer supported! The code to launch the latest version (V2) has been copied to your clipboard.","Unsupported Version!", 0)
+        messagebox("This version of SimpleSpy is no longer supported! The code to launch the latest version (V2) has been copied to your clipboard.","Unsupported Version!", 0)
     end)
     if succeeded then
         _G.SimpleSpyExecuted = true
