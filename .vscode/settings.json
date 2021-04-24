@@ -51,7 +51,8 @@
         "readfile",
         "writefile",
         "rconsolename",
-        "islclosure"
+        "islclosure",
+        "messagebox"
     ],
     "Lua.runtime.version": "Luau",
     "Lua.diagnostics.disable": [
